@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MindLock — Web Prototype</title>
+<style>
+  :root{--bg:#0f1720;--card:#0b1220;--accent:#7c3aed;--muted:#9aa4b2;--glass:rgba(255,255,255,0.04)}
+  *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+  body{margin:0;background:linear-gradient(180deg,#071021 0%,#00121a 100%);color:#e6eef6;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px}
+  .app{max-width:980px;width:100%}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  h1{font-size:20px;margin:0;color:#fff}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);display:flex;flex-direction:column;align-items:center;gap:10px}
+  .icon{width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;color:#fff}
+  .name{font-size:14px}
+  .btn{padding:8px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+  .primary{background:var(--accent);color:#fff}
+  .muted{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)}
+  footer{margin-top:18px;color:var(--muted);font-size:13px}
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(1,6,10,0.6);display:none;align-items:center;justify-content:center;z-index:30}
+  .modal{width:92%;max-width:420px;background:#071426;border-radius:12px;padding:18px;box-shadow:0 12px 40px rgba(2,6,23,0.7)}
+  .modal h2{margin:0 0 8px 0}
+  .input,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:var(--glass);color:#fff}
+  .row{display:flex;gap:10px;align-items:center}
+  .small{font-size:12px;color:var(--muted)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:999px;font-size:13px;color:var(--muted);cursor:pointer}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+  .stat{background:rgba(255,255,255,0.03);padding:10px;border-radius:10px;min-width:90px;text-align:center}
+  .settings{margin-top:14px;background:rgba(255,255,255,0.02);padding:12px;border-radius:10px}
+  input[type=number]{width:80px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+  .linklike{background:transparent;border:0;color:var(--accent);cursor:pointer;padding:0;font-weight:600}
+  .tiny{font-size:12px;color:var(--muted)}
+  .danger{background:#7a1222;color:#fff}
+  .ok{background:#1a7a2d;color:#fff}
+  /* responsive */
+  @media(min-width:720px){body{padding:40px}}
+</style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="MindLock prototype">
+    <header>
+      <div>
+        <h1>MindLock — Personal Web Prototype</h1>
+        <p class="lead">Click an app. A mindful pause will ask “Kya kaam se khol rahe ho?”. Answers stored locally.</p>
+      </div>
+      <div class="controls">
+        <button id="btnStats" class="btn muted">Stats</button>
+        <button id="btnSettings" class="btn muted">Settings</button>
+        <button id="btnReset" class="btn muted">Reset</button>
+      </div>
+    </header>
+
+    <section>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <div class="chip" id="addApp">＋ Add App</div>
+        <div class="chip" id="toggleProtected">Toggle Protected Mode</div>
+        <div class="tiny">Protected mode: <span id="modeText">ON</span></div>
+      </div>
+
+      <div class="grid" id="appsGrid" aria-live="polite">
+        <!-- app cards filled by JS -->
+      </div>
+
+      <div class="settings" id="settingsPanel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Settings</strong><button id="closeSettings" class="linklike">Close</button></div>
+        <div style="margin-top:8px">
+          <label class="small">Cooldown (seconds)</label><br/>
+          <input id="cooldown" type="number" min="0" value="4"> <span class="tiny">— prevent repeat prompts</span>
+        </div>
+        <div style="margin-top:8px">
+          <label class="small">Whitelist (comma-separated package labels)</label><br/>
+          <input id="whitelist" type="text" placeholder="e.g., Phone,Camera">
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="saveSettings" class="btn primary">Save</button>
+          <button id="cancelSettings" class="btn muted">Cancel</button>
+        </div>
+      </div>
+
+      <div id="statsPanel" style="display:none;margin-top:12px">
+        <strong>Stats</strong>
+        <div class="stats" id="statsWrap"></div>
+      </div>
+
+    </section>
+
+    <footer>
+      <div class="tiny">Ye prototype sirf personal practice ke liye hai. Local storage me data save hota hai. — Dil se, mindful coding.</div>
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-backdrop" id="backdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle">Kya kaam se khol rahe ho?</h2>
+      <div style="margin-bottom:10px" class="small">Type a short reason — ya quick pick karlo.</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap" id="quickChoices">
+        <button class="chip">Work</button>
+        <button class="chip">Study</button>
+        <button class="chip">Quick check</button>
+        <button class="chip">Bored</button>
+        <button class="chip">Social</button>
+      </div>
+      <textarea id="reason" rows="3" class="input" placeholder="Yahan likho..."></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+        <button id="cancelBtn" class="btn muted">Cancel</button>
+        <button id="continueBtn" class="btn primary">Continue</button>
+      </div>
+      <div class="tiny" style="margin-top:8px;color:var(--muted)">Tip: Use the quick chips for speed. Responses are stored in your browser.</div>
+    </div>
+  </div>
+
+<script>
+/* MindLock Web Prototype JS
+   - stores answers in localStorage under 'mindlock_log' as array of {app,label,reason,timestamp}
+   - apps: sample set; editable via add
+   - protected mode: if ON, a click triggers modal; otherwise direct open simulation
+*/
+
+const defaultApps = [
+  {id:'youtube', label:'YouTube', color:'#ff0000', pkg:'com.google.android.youtube'},
+  {id:'instagram', label:'Instagram', color:'#C13584', pkg:'com.instagram.android'},
+  {id:'whatsapp', label:'WhatsApp', color:'#25D366', pkg:'com.whatsapp'},
+  {id:'facebook', label:'Facebook', color:'#1877F2', pkg:'com.facebook.katana'},
+  {id:'twitter', label:'X (Twitter)', color:'#1DA1F2', pkg:'com.twitter.android'},
+  {id:'camera', label:'Camera', color:'#7b61ff', pkg:'com.android.camera'}
+];
+
+const appsGrid = document.getElementById('appsGrid');
+const backdrop = document.getElementById('backdrop');
+const reasonEl = document.getElementById('reason');
+const continueBtn = document.getElementById('continueBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const quickChoices = document.getElementById('quickChoices');
+const statsWrap = document.getElementById('statsWrap');
+const settingsPanel = document.getElementById('settingsPanel');
+const statsPanel = document.getElementById('statsPanel');
+const btnStats = document.getElementById('btnStats');
+const btnSettings = document.getElementById('btnSettings');
+const btnReset = document.getElementById('btnReset');
+const addApp = document.getElementById('addApp');
+const toggleProtected = document.getElementById('toggleProtected');
+const modeText = document.getElementById('modeText');
+const saveSettings = document.getElementById('saveSettings');
+const cancelSettings = document.getElementById('cancelSettings');
+const closeSettings = document.getElementById('closeSettings');
+const cooldownInput = document.getElementById('cooldown');
+const whitelistInput = document.getElementById('whitelist');
+const btnOverlay = document.getElementById('btnOverlay');
+
+let apps = JSON.parse(localStorage.getItem('mindlock_apps') || 'null') || defaultApps;
+let logs = JSON.parse(localStorage.getItem('mindlock_log') || '[]');
+let protectedMode = JSON.parse(localStorage.getItem('mindlock_protected') || 'true');
+let lastShown = {};
+let cooldown = parseInt(localStorage.getItem('mindlock_cooldown')||'4',10) || 4;
+let whitelist = (localStorage.getItem('mindlock_whitelist')||'').split(',').map(s=>s.trim()).filter(Boolean);
+
+modeText.textContent = protectedMode ? 'ON':'OFF';
+cooldownInput.value = cooldown;
+whitelistInput.value = whitelist.join(',');
+
+function saveState(){
+  localStorage.setItem('mindlock_apps', JSON.stringify(apps));
+  localStorage.setItem('mindlock_log', JSON.stringify(logs));
+  localStorage.setItem('mindlock_protected', JSON.stringify(protectedMode));
+  localStorage.setItem('mindlock_cooldown', cooldown);
+  localStorage.setItem('mindlock_whitelist', whitelist.join(','));
+}
+
+function renderApps(){
+  appsGrid.innerHTML = '';
+  apps.forEach(a => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
+      <div class="icon" style="background:${a.color}">${a.label.slice(0,1)}</div>
+      <div class="name">${a.label}</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn primary openBtn" data-id="${a.id}">Open</button>
+        <button class="btn muted editBtn" data-id="${a.id}">Edit</button>
+      </div>
+    `;
+    appsGrid.appendChild(el);
+  });
+
+  // attach listeners
+  document.querySelectorAll('.openBtn').forEach(b=>{
+    b.onclick = e => {
+      const id = e.currentTarget.dataset.id;
+      handleOpen(id);
+    }
+  });
+  document.querySelectorAll('.editBtn').forEach(b=>{
+    b.onclick = e => {
+      const id = e.currentTarget.dataset.id;
+      editApp(id);
+    }
+  });
+}
+
+function handleOpen(id){
+  const app = apps.find(x=>x.id===id);
+  if(!app) return;
+  const now = Date.now();
+  // whitelist check by label (simple demo)
+  if(whitelist.includes(app.label)) {
+    simulateOpen(app);
+    return;
+  }
+  if(!protectedMode){
+    simulateOpen(app);
+    return;
+  }
+  // cooldown check
+  if(lastShown[app.id] && now - lastShown[app.id] < cooldown*1000){
+    simulateOpen(app); // within cooldown: allow
+    return;
+  }
+  // show modal
+  openModal(app);
+}
+
+function simulateOpen(app){
+  // simulate opening — for web we just show a small toast and log open without reason
+  addLog(app, 'Opened (no reason)', Date.now(), true);
+  showToast(`Opened ${app.label}`);
+}
+
+function openModal(app){
+  backdrop.style.display = 'flex';
+  reasonEl.value = '';
+  reasonEl.dataset.appId = app.id;
+  lastShown[app.id] = Date.now();
+}
+
+function closeModal(){
+  backdrop.style.display = 'none';
+  reasonEl.dataset.appId = '';
+}
+
+continueBtn.onclick = ()=>{
+  const appId = reasonEl.dataset.appId;
+  const app = apps.find(x=>x.id===appId);
+  if(!app) return closeModal();
+  const reason = reasonEl.value.trim() || '—';
+  addLog(app, reason, Date.now());
+  closeModal();
+  showToast(`Thanks — ${app.label} opened.`);
+}
+
+cancelBtn.onclick = ()=>{
+  // treat cancel as a block/hang: we won't open app; but still record
+  const appId = reasonEl.dataset.appId;
+  const app = apps.find(x=>x.id===appId);
+  if(app){ addLog(app, 'Cancelled', Date.now()); }
+  closeModal();
+  showToast('Action cancelled.');
+}
+
+quickChoices.querySelectorAll('.chip').forEach(ch=>{
+  ch.addEventListener('click', e=>{
+    reasonEl.value = e.currentTarget.textContent;
+  });
+});
+
+function addLog(app, reason, ts=Date.now(), silent=false){
+  logs.push({app:app.label, pkg:app.pkg, reason, ts});
+  saveState();
+  if(!silent) renderStats();
+}
+
+function renderStats(){
+  statsWrap.innerHTML = '';
+  const map = {};
+  logs.forEach(l=>{
+    const d = new Date(l.ts);
+    // group by app label
+    map[l.app] = (map[l.app]||0)+1;
+  });
+  const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0){
+    statsWrap.innerHTML = '<div class="tiny" style="color:var(--muted)">No activity yet — open some apps.</div>';
+    return;
+  }
+  entries.forEach(([label,count])=>{
+    const s = document.createElement('div');
+    s.className = 'stat';
+    s.innerHTML = `<div style="font-weight:700">${label}</div><div class="small">${count} opens</div>`;
+    statsWrap.appendChild(s);
+  });
+}
+
+btnStats.onclick = ()=>{
+  statsPanel.style.display = statsPanel.style.display === 'none' ? 'block' : 'none';
+  renderStats();
+}
+
+btnSettings.onclick = ()=>{
+  settingsPanel.style.display = 'block';
+}
+
+closeSettings.onclick = ()=> settingsPanel.style.display = 'none';
+cancelSettings.onclick = ()=> settingsPanel.style.display = 'none';
+saveSettings.onclick = ()=>{
+  const c = parseInt(cooldownInput.value||'4',10) || 0;
+  cooldown = c;
+  cooldownInput.value = c;
+  whitelist = whitelistInput.value.split(',').map(s=>s.trim()).filter(Boolean);
+  modeText.textContent = protectedMode ? 'ON':'OFF';
+  saveState();
+  settingsPanel.style.display = 'none';
+  showToast('Settings saved');
+}
+
+btnReset.onclick = ()=>{
+  if(confirm('Reset all data (apps & logs)?')) {
+    localStorage.removeItem('mindlock_log');
+    localStorage.removeItem('mindlock_apps');
+    logs = [];
+    apps = defaultApps.slice();
+    saveState();
+    renderApps();
+    renderStats();
+    showToast('Reset done');
+  }
+}
+
+addApp.onclick = ()=>{
+  const label = prompt('App label (e.g., MyApp)');
+  if(!label) return;
+  const id = label.toLowerCase().replace(/\s+/g,'_') + '_' + Math.floor(Math.random()*9999);
+  const color = prompt('Hex color for icon (e.g., #ff8844)', '#7b61ff') || '#7b61ff';
+  const pkg = prompt('Package identifier (optional)', 'com.example.'+id) || 'com.example.'+id;
+  apps.push({id,label,color,pkg});
+  saveState();
+  renderApps();
+}
+
+toggleProtected.onclick = ()=>{
+  protectedMode = !protectedMode;
+  modeText.textContent = protectedMode ? 'ON':'OFF';
+  saveState();
+  showToast('Protected mode ' + (protectedMode ? 'enabled':'disabled'));
+}
+
+function editApp(id){
+  const app = apps.find(x=>x.id===id);
+  if(!app) return;
+  const newLabel = prompt('Label', app.label) || app.label;
+  const newColor = prompt('Color', app.color) || app.color;
+  app.label = newLabel;
+  app.color = newColor;
+  saveState();
+  renderApps();
+  showToast('App updated');
+}
+
+/* small toast */
+let toastTimer=null;
+function showToast(msg){
+  let t = document.getElementById('ml_toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'ml_toast';
+    Object.assign(t.style,{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#001827',padding:'10px 14px',borderRadius:'10px',boxShadow:'0 8px 24px rgba(2,6,23,0.6)',zIndex:60,color:'#bfe6ff'});
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.style.opacity = '0'; },2200);
+}
+
+/* init */
+renderApps();
+renderStats();
+
+// keyboard escape to close modal
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && backdrop.style.display==='flex') closeModal();
+});
+</script>
+</body>
+</html>
